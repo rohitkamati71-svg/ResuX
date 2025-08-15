@@ -56,7 +56,14 @@ const Upload = () => {
             ? feedback.message.content
             : feedback.message.content[0].text;
 
-        data.feedback = JSON.parse(feedbackText);
+            let parsedFeedback;
+try {
+  parsedFeedback = JSON.parse(feedbackText);
+} catch (err) {
+  console.error("Invalid JSON from AI feedback:", feedbackText, err);
+  parsedFeedback = feedbackText; // fallback to raw text
+}
+        data.feedback = parsedFeedback;
         await kv.set(`resume:${uuid}`, JSON.stringify(data));
         setStatusText('Analysis complete, redirecting...');
         console.log(data);
