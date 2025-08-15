@@ -342,8 +342,7 @@ const feedback = async (path: string, message: string) => {
           ],
         },
       ],
-      undefined,          // imageURL (unused)
-      undefined,          // testMode (unused)
+      // testMode (unused)
       { model: "gpt-4o-mini" }  // <-- options MUST be the 4th param
     ) as AIResponse | undefined;
   } catch (err: any) {
