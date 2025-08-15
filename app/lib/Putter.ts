@@ -22,14 +22,11 @@ declare global {
       ai: {
         chat: (
           prompt: string | ChatMessage[],
-          imageURL?: string | PuterChatOptions,
+          imageURL?: string,
           testMode?: boolean,
           options?: PuterChatOptions
         ) => Promise<Object>;
-        img2txt: (
-          image: string | File | Blob,
-          testMode?: boolean
-        ) => Promise<string>;
+        img2txt: (image: string | File | Blob, testMode?: boolean) => Promise<string>;
       };
       kv: {
         get: (key: string) => Promise<string | null>;
@@ -312,46 +309,49 @@ export const usePuterStore = create<PuterStore>((set, get) => {
 
   const chat = async (
     prompt: string | ChatMessage[],
-    imageURL?: string | PuterChatOptions,
-    testMode?: boolean,
     options?: PuterChatOptions
   ) => {
     const puter = getPuter();
-    if (!puter) {
-      setError("Puter.js not available");
-      return;
-    }
-    // return puter.ai.chat(prompt, imageURL, testMode, options);
-    return puter.ai.chat(prompt, imageURL, testMode, options) as Promise<
-      AIResponse | undefined
-    >;
+    if (!puter) { setError("Puter.js not available"); return; }
+
+    return puter.ai.chat(
+      prompt,
+      undefined, // imageURL
+      undefined, // testMode
+      options
+    ) as Promise<AIResponse | undefined>;
   };
 
   const feedback = async (path: string, message: string) => {
     const puter = getPuter();
-    if (!puter) {
-      setError("Puter.js not available");
+    if (!puter) { setError("Puter.js not available"); return; }
+
+    try {
+      return await puter.ai.chat(
+        [
+          {
+            role: "user",
+            content: [
+              { type: "file", puter_path: path },
+              { type: "text", text: message },
+            ],
+          },
+        ],
+        undefined,
+        undefined,
+        { model: "gpt-5" }  //  Changed to GPT-5
+      ) as AIResponse | undefined;
+    } catch (err: any) {
+      const limited =
+        err?.delegate === "usage-limited-chat" ||
+        err?.code === "error_400_from_delegate";
+      if (limited) {
+        setError("AI usage limit reached. Please retry later or switch model.");
+        return;
+      }
+      setError(err instanceof Error ? err.message : "AI chat failed");
       return;
     }
-
-    return puter.ai.chat(
-      [
-        {
-          role: "user",
-          content: [
-            {
-              type: "file",
-              puter_path: path,
-            },
-            {
-              type: "text",
-              text: message,
-            },
-          ],
-        },
-      ],
-      { model: "gpt-5" }
-    ) as Promise<AIResponse | undefined>;
   };
 
   const img2txt = async (image: string | File | Blob, testMode?: boolean) => {
@@ -432,12 +432,8 @@ export const usePuterStore = create<PuterStore>((set, get) => {
       delete: (path: string) => deleteFile(path),
     },
     ai: {
-      chat: (
-        prompt: string | ChatMessage[],
-        imageURL?: string | PuterChatOptions,
-        testMode?: boolean,
-        options?: PuterChatOptions
-      ) => chat(prompt, imageURL, testMode, options),
+      chat: (prompt: string | ChatMessage[], options?: PuterChatOptions) =>
+        chat(prompt, options),
       feedback: (path: string, message: string) => feedback(path, message),
       img2txt: (image: string | File | Blob, testMode?: boolean) =>
         img2txt(image, testMode),
