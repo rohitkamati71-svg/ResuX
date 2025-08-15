@@ -350,7 +350,7 @@ export const usePuterStore = create<PuterStore>((set, get) => {
           ],
         },
       ],
-      { model: "claude-opus-4" }
+      { model: "deepseek-reasoner" }
     ) as Promise<AIResponse | undefined>;
   };
 
