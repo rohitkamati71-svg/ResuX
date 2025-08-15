@@ -20,16 +20,17 @@ declare global {
         readdir: (path: string) => Promise<FSItem[] | undefined>;
       };
       ai: {
-  chat: (
-    prompt: string | ChatMessage[],
-    options?: PuterChatOptions
-  ) => Promise<AIResponse | undefined>;
-  feedback: (path: string, message: string) => Promise<AIResponse | undefined>;
-  img2txt: (
-    image: string | File | Blob,
-    testMode?: boolean
-  ) => Promise<string | undefined>;
-};
+        chat: (
+          prompt: string | ChatMessage[],
+          imageURL?: string | PuterChatOptions,
+          testMode?: boolean,
+          options?: PuterChatOptions
+        ) => Promise<Object>;
+        img2txt: (
+          image: string | File | Blob,
+          testMode?: boolean
+        ) => Promise<string>;
+      };
       kv: {
         get: (key: string) => Promise<string | null>;
         set: (key: string, value: string) => Promise<boolean>;
@@ -309,56 +310,49 @@ export const usePuterStore = create<PuterStore>((set, get) => {
     return puter.fs.delete(path);
   };
 
-const chat = async (
-  prompt: string | ChatMessage[],
-  options?: PuterChatOptions
-) => {
-  const puter = getPuter();
-  if (!puter) { 
-    setError("Puter.js not available"); 
-    return; 
-  }
+  const chat = async (
+    prompt: string | ChatMessage[],
+    imageURL?: string | PuterChatOptions,
+    testMode?: boolean,
+    options?: PuterChatOptions
+  ) => {
+    const puter = getPuter();
+    if (!puter) {
+      setError("Puter.js not available");
+      return;
+    }
+    // return puter.ai.chat(prompt, imageURL, testMode, options);
+    return puter.ai.chat(prompt, imageURL, testMode, options) as Promise<
+      AIResponse | undefined
+    >;
+  };
 
-  return puter.ai.chat(
-    prompt,
-    undefined, // imageURL
-    undefined, // testMode
-    options    // options in the 4th position
-  ) as Promise<AIResponse | undefined>;
-};
+  const feedback = async (path: string, message: string) => {
+    const puter = getPuter();
+    if (!puter) {
+      setError("Puter.js not available");
+      return;
+    }
 
-const feedback = async (path: string, message: string) => {
-  const puter = getPuter();
-  if (!puter) { setError("Puter.js not available"); return; }
-
-  try {
-    return await puter.ai.chat(
+    return puter.ai.chat(
       [
         {
           role: "user",
           content: [
-            { type: "file", puter_path: path },
-            { type: "text", text: message },
+            {
+              type: "file",
+              puter_path: path,
+            },
+            {
+              type: "text",
+              text: message,
+            },
           ],
         },
       ],
-      // testMode (unused)
-      { model: "gpt-4o-mini" }  // <-- options MUST be the 4th param
-    ) as AIResponse | undefined;
-  } catch (err: any) {
-    const limited =
-      err?.delegate === "usage-limited-chat" ||
-      err?.code === "error_400_from_delegate";
-
-    if (limited) {
-      setError("AI usage limit reached by the default delegate. Try again later or switch model/provider.");
-      return;
-    }
-
-    setError(err instanceof Error ? err.message : "AI chat failed");
-    return;
-  }
-};
+      { model: "claude-sonnet-4" }
+    ) as Promise<AIResponse | undefined>;
+  };
 
   const img2txt = async (image: string | File | Blob, testMode?: boolean) => {
     const puter = getPuter();
@@ -438,13 +432,16 @@ const feedback = async (path: string, message: string) => {
       delete: (path: string) => deleteFile(path),
     },
     ai: {
-  chat: (prompt: string | ChatMessage[], options?: PuterChatOptions) =>
-    chat(prompt, options),
-  feedback: (path: string, message: string) =>
-    feedback(path, message),
-  img2txt: (image: string | File | Blob, testMode?: boolean) =>
-    img2txt(image, testMode),
-},
+      chat: (
+        prompt: string | ChatMessage[],
+        imageURL?: string | PuterChatOptions,
+        testMode?: boolean,
+        options?: PuterChatOptions
+      ) => chat(prompt, imageURL, testMode, options),
+      feedback: (path: string, message: string) => feedback(path, message),
+      img2txt: (image: string | File | Blob, testMode?: boolean) =>
+        img2txt(image, testMode),
+    },
     kv: {
       get: (key: string) => getKV(key),
       set: (key: string, value: string) => setKV(key, value),
